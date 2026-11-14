@@ -3,7 +3,7 @@
 ### Catatan belajar — Bahasa Indonesia
 
 > **Catatan jujur dari penulis:**
-> Saya bukan programmer ahli. Panduan ini adalah catatan belajar saya — semua langkah di sini saya kerjakan dibantu AI agent (Muse) yang menjalankan perintahnya, saya yang mengarahkan. Semua dikerjakan pakai tools gratisan. Saya tulis apa adanya, termasuk gagalnya. Kalau ada yang salah atau bisa lebih baik, kabari saya.
+> Saya bukan programmer ahli. Panduan ini adalah catatan belajar saya — semua langkah di sini saya kerjakan dibantu AI agent yang menjalankan perintahnya, saya yang mengarahkan. Semua dikerjakan pakai tools gratisan. Saya tulis apa adanya, termasuk gagalnya. Kalau ada yang salah atau bisa lebih baik, kabari saya.
 
 > **⚠️ Peringatan paling penting:**
 > JANGAN pernah membagikan mnemonic / seed phrase / private key kamu ke siapa pun — termasuk ke saya, ke AI manapun, atau ke orang yang mengaku "support". Simpan baik-baik di tempat aman. Yang boleh dishare hanya DID dan alamat publik (alamat wallet / SS58).
@@ -225,10 +225,18 @@ Responsnya berisi `remaining_quota`, `spend`, dan masa berlaku key.
 
 **Artinya:** request completion non-streaming kamu mati di tengah jalan karena Cloudflare menutup koneksi setelah ~100 detik, padahal server mungkin masih memproses.
 
-**Solusi yang saya temukan:**
-- Pakai **streaming** (`stream: true`) — response mengalir sedikit demi sedikit, tidak menunggu sampai selesai baru dikirim, jadi tidak kena timeout 100 detik.
+**Solusi yang saya terapkan (streaming):**
+- Pakai **streaming** (`stream: true`) — response mengalir sedikit demi sedikit (SSE), tidak menunggu sampai selesai baru dikirim, jadi tidak kena timeout 100 detik.
 - Pakai `max_tokens` kecil (128) — response lebih pendek, lebih cepat selesai.
-- Kalau tetap kena 524, cek receipt-nya: kadang request yang kena 524 ternyata sudah dijawab server dengan 429 lalu di-`released`. Jadi selalu cek receipt, jangan asumsi dari error HTTP saja.
+- Health check dilonggarkan: timeout 45 detik dan **tidak fatal** — kalau health lambat, script tetap lanjut coba completion (gateway bisa saja tetap melayani walau health lambat). Sebelumnya health check 15 detik yang gagal langsung menghentikan script (`health_failed`), padahal itu sering cuma health yang lambat, bukan gateway mati.
+- Retry di dalam satu attempt: kalau completion kena 429 / 503 / 524 / abort, coba lagi sampai 8x dengan jeda 45 detik, pakai **Idempotency-Key yang sama** — jadi gateway menganggapnya request yang sama, tidak bikin receipt / reserve baru.
+- Pastikan script selalu menulis file hasil di semua jalur keluar (termasuk saat gagal). Jangan pakai `process.exit()` langsung setelah `console.log` — itu bisa bikin log hilang (saya pernah kena: log 0 byte, file hasil tidak tertulis). Pakai `process.exitCode` supaya output sempat ter-flush.
+
+**Hasil tes saya (15 Nov 2026):** satu completion streaming berhasil penuh — HTTP 200, 12 chunk, 526 karakter, `[DONE]` diterima. Ini pertama kalinya saya dapat respons lengkap (sebelumnya selalu abort / 524).
+
+**Catatan jujur:** streaming memperbaiki **completion**-nya (respons berhasil diterima), tapi **settlement receipt tetap proses server-side yang terpisah**. Receipt bisa tetap `estimated` dulu setelah completion berhasil — settlement tergantung miner menyelesaikan kerja + gateway memfinalisasi. Jadi streaming bukan jaminan langsung settle, tapi tanpa streaming, completion-nya saja sudah gagal duluan.
+
+**Kalau tetap kena 524,** cek receipt-nya: kadang request yang kena 524 ternyata sudah dijawab server dengan 429 lalu di-`released`. Jadi selalu cek receipt, jangan asumsi dari error HTTP saja.
 
 ### 3.4 Receipt `estimated` lama / tidak settle
 
@@ -487,4 +495,4 @@ Panduan ini saya tulis dari pengalaman nyata — termasuk semua gagalnya. Devnet
 
 ---
 
-*Dibuat dari catatan belajar — dibantu AI agent (Muse), tools gratisan. Kalau ada yang salah atau bisa lebih baik, kabari saya.*
+*Dibuat dari catatan belajar — dibantu AI agent, tools gratisan. Kalau ada yang salah atau bisa lebih baik, kabari saya.*
