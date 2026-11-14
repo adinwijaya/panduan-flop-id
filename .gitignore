@@ -1,0 +1,17 @@
+# JANGAN PERNAH commit file berisi mnemonic / seed / private key / Bearer key
+*.key
+*seed*
+*mnemonic*
+*secret*
+.env
+*.pem
+technocore-did.txt
+technocore-identity.key
+devnet-gateway.json
+devnet-gateway-key
+devnet-agent.json
+*-wallet*.txt
+*-wallet*.json
+node_modules/
+venv/
+__pycache__/
